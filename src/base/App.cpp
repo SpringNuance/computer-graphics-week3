@@ -219,6 +219,7 @@ void App::initRendering()
 	// Perform the skinning math in the vertex shader, like the example binary
 	// does. This is the exact same thing you already did in R4 & R5, only
 	// translated from C++ to GLSL. Remember to handle normals as well.
+	
 	auto ssd_prog = new GLContext::Program(
 		"#version 330\n"
 		FW_GL_SHADER_SOURCE(
@@ -235,16 +236,41 @@ void App::initRendering()
 		uniform float uShadingMix;
 
 		out vec4 vColor;		
-
+		out vec3 normal;
 		const int numJoints = 100;
 		uniform mat4 uJoints[numJoints];
 	
 		void main()
 		{
+			
 			float clampedCosine = clamp(dot(aNormal, directionToLight), 0.0, 1.0);
 			vec3 litColor = vec3(clampedCosine);
 			vColor = vec4(mix(aColor.xyz, litColor, uShadingMix), 1);
-			gl_Position = uWorldToClip * aPosition;
+			
+			vec4 skinPosSSD =
+		  aWeights1.x * ( uJoints[ aJoints1.x ] * aPosition)
+		+ aWeights1.y * ( uJoints[ aJoints1.y ] * aPosition)
+		+ aWeights1.z * ( uJoints[ aJoints1.z ] * aPosition)
+		+ aWeights1.w * ( uJoints[ aJoints1.w ] * aPosition)
+		+ aWeights2.x * (uJoints[aJoints2.x] * aPosition)
+		+ aWeights2.y * (uJoints[aJoints2.y] * aPosition)
+		+ aWeights2.z * (uJoints[aJoints2.z] * aPosition)
+		+ aWeights2.w * (uJoints[aJoints2.w] * aPosition);
+	      gl_Position = uWorldToClip * skinPosSSD;
+			
+			//gl_Position = uWorldToClip * aPosition;
+		  vec4 hNormal = vec4(aNormal, 1.0);
+		  vec4 skinNormalSSD =
+			    aWeights1.x * (uJoints[aJoints1.x] * hNormal)
+			  + aWeights1.y * (uJoints[aJoints1.y] * hNormal)
+			  + aWeights1.z * (uJoints[aJoints1.z] * hNormal)
+			  + aWeights1.w * (uJoints[aJoints1.w] * hNormal)
+			  + aWeights2.x * (uJoints[aJoints2.x] * hNormal)
+			  + aWeights2.y * (uJoints[aJoints2.y] * hNormal)
+			  + aWeights2.z * (uJoints[aJoints2.z] * hNormal)
+			  + aWeights2.w * (uJoints[aJoints2.w] * hNormal);
+		  normal = normalize(vec3(skinNormalSSD.x, skinNormalSSD.y, skinNormalSSD.z));
+
 		}
 		),
 		"#version 330\n"
