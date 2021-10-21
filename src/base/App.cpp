@@ -236,14 +236,27 @@ void App::initRendering()
 		uniform float uShadingMix;
 
 		out vec4 vColor;		
-		out vec3 normal;
+
 		const int numJoints = 100;
 		uniform mat4 uJoints[numJoints];
 	
 		void main()
 		{
-			
-			float clampedCosine = clamp(dot(aNormal, directionToLight), 0.0, 1.0);
+			// finding normal 
+			vec4 hNormal = vec4(aNormal, 1.0);
+			vec4 skinNormalSSD =
+				aWeights1.x * (uJoints[aJoints1.x] * hNormal)
+				+ aWeights1.y * (uJoints[aJoints1.y] * hNormal)
+				+ aWeights1.z * (uJoints[aJoints1.z] * hNormal)
+				+ aWeights1.w * (uJoints[aJoints1.w] * hNormal)
+				+ aWeights2.x * (uJoints[aJoints2.x] * hNormal)
+				+ aWeights2.y * (uJoints[aJoints2.y] * hNormal)
+				+ aWeights2.z * (uJoints[aJoints2.z] * hNormal)
+				+ aWeights2.w * (uJoints[aJoints2.w] * hNormal);
+			vec3 normal = normalize(vec3(skinNormalSSD.x, skinNormalSSD.y, skinNormalSSD.z));
+
+			// change aNormal into normal
+			float clampedCosine = clamp(dot(normal, directionToLight), 0.0, 1.0);
 			vec3 litColor = vec3(clampedCosine);
 			vColor = vec4(mix(aColor.xyz, litColor, uShadingMix), 1);
 			
@@ -259,17 +272,7 @@ void App::initRendering()
 	      gl_Position = uWorldToClip * skinPosSSD;
 			
 			//gl_Position = uWorldToClip * aPosition;
-		  vec4 hNormal = vec4(aNormal, 1.0);
-		  vec4 skinNormalSSD =
-			    aWeights1.x * (uJoints[aJoints1.x] * hNormal)
-			  + aWeights1.y * (uJoints[aJoints1.y] * hNormal)
-			  + aWeights1.z * (uJoints[aJoints1.z] * hNormal)
-			  + aWeights1.w * (uJoints[aJoints1.w] * hNormal)
-			  + aWeights2.x * (uJoints[aJoints2.x] * hNormal)
-			  + aWeights2.y * (uJoints[aJoints2.y] * hNormal)
-			  + aWeights2.z * (uJoints[aJoints2.z] * hNormal)
-			  + aWeights2.w * (uJoints[aJoints2.w] * hNormal);
-		  normal = normalize(vec3(skinNormalSSD.x, skinNormalSSD.y, skinNormalSSD.z));
+		 
 
 		}
 		),
