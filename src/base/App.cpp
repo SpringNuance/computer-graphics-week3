@@ -380,15 +380,23 @@ void App::renderSkeleton() {
 		Vec3f joint_world_pos = (transforms[i] * Vec4f(0, 0, 0, 1)).getXYZ();
 
 		// glBegin()-glEnd() with glVertex() commands in between is how draw calls
-		// are done in immediate mode OpenGL.
+		// are done in immediate mode OpenGL. 
 		glBegin(GL_POINTS);
 		if (i == (int)selected_joint_)
-			glColor3f( 1.0f, 0.2f, 0.2f );
+			glColor3f( 1.0f, 0.2f, 0.2f ); // Draw red for root node
 		else
-			glColor3f( 1.0f, 1.0f, 1.0f );
+			glColor3f( 1.0f, 1.0f, 1.0f ); // Draw white for others
 
 		// Immediate mode command drawing an individual vertex
-		glVertex3f(joint_world_pos.x, joint_world_pos.y, joint_world_pos.z);
+		glVertex3f(joint_world_pos.x, joint_world_pos.y, joint_world_pos.z); // draw a sphere of node, colors from above
+		auto m = transforms[i];
+		/*
+		std::cout << "\n";
+		std::cout << m(0, 0) << " " << m(0, 1) << " " << m(0, 2) << " " << m(0, 3) << "\n";
+		std::cout << m(1, 0) << " " << m(1, 1) << " " << m(1, 2) << " " << m(1, 3) << "\n";
+		std::cout << m(2, 0) << " " << m(2, 1) << " " << m(2, 2) << " " << m(2, 3) << "\n";
+		std::cout << m(3, 0) << " " << m(3, 1) << " " << m(3, 2) << " " << m(3, 3) << "\n";
+		*/
 		glEnd(); // we're done drawing points
 
 		// YOUR CODE HERE (R3)
@@ -396,52 +404,82 @@ void App::renderSkeleton() {
 		// (If you understand transformation matrices correctly, you can directly
 		// read the these vectors off of the matrices.)
 		Vec3f right, up, ahead;
+		right = (transforms[i] * Vec4f(1, 0, 0, 0)).getXYZ();
+		up = (transforms[i] * Vec4f(0, 1, 0, 0)).getXYZ();
+		ahead = (transforms[i] * Vec4f(0, 0, 1, 0)).getXYZ();
+		
 		// Then let's draw some lines to show the joint coordinate system.
 		// Draw a small coloured line segment from the joint's world position towards
 		// each of its local coordinate axes (the line length should be determined by "scale").
 		// The colors for each axis are already set for you below.
-		const float scale = 0.05;	// length for the coordinate system axes.
+		const float scale = 0.05; // length for the coordinate system axes.
+
 		glBegin(GL_LINES);
 
 		// draw the x axis... ("right")
+		
 		glColor3f(1, 0, 0); // red
-		// glVertex3f(...); glVertex3f(...);
-
+		glVertex3f(joint_world_pos.x, joint_world_pos.y, joint_world_pos.z); 
+		glVertex3f(scale * right.x + joint_world_pos.x,scale * right.y + joint_world_pos.y, scale * right.z + joint_world_pos.z);
+		
 		// ..and the y axis.. ("up")
 		glColor3f(0, 1, 0); // green
-		// glVertex3f(...); glVertex3f(...);
+		glVertex3f(joint_world_pos.x, joint_world_pos.y, joint_world_pos.z);
+		glVertex3f(scale * up.x + joint_world_pos.x, scale * up.y + joint_world_pos.y, scale * up.z + joint_world_pos.z);
 
 		// ..and the z axis ("ahead").
 		glColor3f(0, 0, 1); // blue
-		// glVertex3f(...); glVertex3f(...);
+		glVertex3f(joint_world_pos.x, joint_world_pos.y, joint_world_pos.z); 
+		glVertex3f(scale * ahead.x + joint_world_pos.x, scale * ahead.y + joint_world_pos.y, scale * ahead.z + joint_world_pos.z);
 
 		// Finally, draw a line segment from the world position of this joint to the world
 		// position of the parent joint. You should first check if the parent exists
 		// using skel_.getJointParent(i) - it returns -1 for the root, which has no parent.
-			
+		if (skel_.getJointParent(i) != -1) {
+			int parentIndex = skel_.getJointParent(i);
+			auto parentToWorld = (transforms[parentIndex] * Vec4f(0, 0, 0, 1)).getXYZ();
+			glColor3f(1, 1, 1); // white
+			glVertex3f(joint_world_pos.x, joint_world_pos.y, joint_world_pos.z);
+			glVertex3f(parentToWorld.x, parentToWorld.y, parentToWorld.z);
+		}
 		// ...
 		glEnd(); // we're done drawing lines	
 	}
 }
 
-vector<Vertex> App::computeSSD(const vector<WeightedVertex>& source_vertices) {
+vector<Vertex> App::computeSSD(const vector<WeightedVertex>& source_vertices) { // mesh we previously loaded where each vertex has joint attachment information
 	vector<Mat4f> ssd_transforms = skel_.getSSDTransforms();
 	vector<Vertex> skinned_vertices;
 	skinned_vertices.reserve(source_vertices.size());
 	Vertex v;
-	for (const auto& sv : source_vertices) {
+	for (const auto& sv : source_vertices) { // for each vertex of the skin
 		// YOUR CODE HERE (R4 & R5)
 		// Compute the skinned position for each vertex and push it to skinned_vertices.
 		// This starter code just copies the source vertex untouched, so the result is not animated.
 		// Replace these lines with the loop that applies the bone transforms and weights.
 		// For R5, transform the normals as well.
-		v.position = sv.position;	
-		v.normal = sv.normal;		
+		
+		Mat4f sum; // Initialize sum 
+		sum.setCol(0, Vec4f(0.f, 0.f, 0.f, 0.f));
+		sum.setCol(1, Vec4f(0.f, 0.f, 0.f, 0.f));
+		sum.setCol(2, Vec4f(0.f, 0.f, 0.f, 0.f));
+		sum.setCol(3, Vec4f(0.f, 0.f, 0.f, 0.f));
+		
+		for (int i = 0; i < 8; i++) {
+			sum += sv.weights[i] * (ssd_transforms[sv.joints[i]]) ;
+		} 
+	
+		// position
+		Vec4f p = sum * Vec4f(sv.position, 1.f);
+		v.position = Vec3f(p[0], p[1], p[2]);
+		// normal
+		Vec4f n = sum * Vec4f(sv.normal, 1.f);
+		v.normal = Vec3f(n[0], n[1], n[2]).normalized(); 
 		v.color = sv.color;
 
 		skinned_vertices.push_back(v);
 	}
-	return skinned_vertices;
+	return skinned_vertices; // produces a mesh of plain vertices that have been deformed to conform to the current	position of the joints
 }
 
 vector<WeightedVertex> App::loadAnimatedMesh(string namefile, string mesh_file, string attachment_file) {

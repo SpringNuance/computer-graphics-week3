@@ -21,9 +21,9 @@ void Skeleton::setJointRotation(unsigned index, Vec3f euler_angles) {
 	joint.to_parent.setCol(3, Vec4f(joint.position, 1.0f));
 	
 	
-	Mat3f rotateX = Mat3f::rotation(Vec3f(1, 0, 0), joint.rotation.x);
-	Mat3f rotateY = Mat3f::rotation(Vec3f(0, 1, 0), joint.rotation.y);
-	Mat3f rotateZ = Mat3f::rotation(Vec3f(0, 0, 1), joint.rotation.z);
+	Mat3f rotateX = Mat3f::rotation(Vec3f(1, 0, 0), euler_angles[0]);
+	Mat3f rotateY = Mat3f::rotation(Vec3f(0, 1, 0), euler_angles[1]);
+	Mat3f rotateZ = Mat3f::rotation(Vec3f(0, 0, 1), euler_angles[2]);
 	
 
 	Mat3f rot =  rotateZ * rotateY * rotateX;
@@ -76,20 +76,11 @@ void Skeleton::updateToWorldTransforms(unsigned joint_index, const Mat4f& parent
 		for (auto childIndex : joints_[joint_index].children) {
 			Skeleton::updateToWorldTransforms(childIndex, joints_[joint_index].to_world);
 		}
-	
-	
 		
 	// YOUR CODE HERE (R1)
 	// Update transforms for joint at joint_index and its children.
 }
 
-void Skeleton::computeToBindTransforms() {
-	updateToWorldTransforms();
-	// YOUR CODE HERE (R4)
-	// Given the current to_world transforms for each bone,
-	// compute the inverse bind pose transformations (as per the lecture slides),
-	// and store the results in the member to_bind_joint of each joint.
-}
 
 vector<Mat4f> Skeleton::getToWorldTransforms() {
 	updateToWorldTransforms();
@@ -99,6 +90,17 @@ vector<Mat4f> Skeleton::getToWorldTransforms() {
 	return transforms;
 }
 
+void Skeleton::computeToBindTransforms() {
+	updateToWorldTransforms();
+	for (auto & joint : joints_) {
+		joint.to_bind_joint = joint.to_world.inverted();
+	}
+	// YOUR CODE HERE (R4)
+	// Given the current to_world transforms for each bone,
+	// compute the inverse bind pose transformations (as per the lecture slides),
+	// and store the results in the member to_bind_joint of each joint.
+}
+
 vector<Mat4f> Skeleton::getSSDTransforms() {
 	updateToWorldTransforms();
 	// YOUR CODE HERE (R4)
@@ -106,10 +108,11 @@ vector<Mat4f> Skeleton::getSSDTransforms() {
 	// store the results in the vector "transforms". These are the transformations
 	// passed into the actual skinning code. (In the lecture slides' terms,
 	// these are the T_i * inv(B_i) matrices.)
-
 	vector<Mat4f> transforms;
+	for (auto & joint : joints_) {
+		transforms.push_back(joint.to_world * joint.to_bind_joint);
+	}
 
-	
 	return transforms;
 }
 
